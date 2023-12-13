@@ -1,40 +1,57 @@
-# Program to send bulk messages through WhatsApp web from an excel sheet without saving contact numbers
-# Author @inforkgodara
-
+# Packages
 from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-from time import sleep
-import pandas
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+import time
 
-excel_data = pandas.read_excel('Recipients data.xlsx', sheet_name='Recipients')
+# Config
+login_time = 30                 # Time for login (in seconds)
+new_msg_time = 10                # TTime for a new message (in seconds)
+send_msg_time = 10               # Time for sending a message (in seconds)
+# country_code = 91               # Set your country code
+action_time = 2                 # Set time for button click action
+image_path = '/Users/rajankandati/Downloads/WhatsApp Image 2023-12-13 at 11.32.15.jpeg'        # Absolute path to you image
 
-count = 0
+# Create driver
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 
-driver = webdriver.Chrome(ChromeDriverManager().install())
-driver.get('https://web.whatsapp.com')
-input("Press ENTER after login into Whatsapp Web and your chats are visiable.")
-for column in excel_data['Contact'].tolist():
-    try:
-        url = 'https://web.whatsapp.com/send?phone={}&text={}'.format(excel_data['Contact'][count], excel_data['Message'][0])
-        sent = False
-        # It tries 3 times to send a message in case if there any error occurred
-        driver.get(url)
-        try:
-            click_btn = WebDriverWait(driver, 35).until(
-                EC.element_to_be_clickable((By.CLASS_NAME, '_3XKXx')))
-        except Exception as e:
-            print("Sorry message could not sent to " + str(excel_data['Contact'][count]))
-        else:
-            sleep(2)
-            click_btn.click()
-            sent = True
-            sleep(5)
-            print('Message sent to: ' + str(excel_data['Contact'][count]))
-        count = count + 1
-    except Exception as e:
-        print('Failed to send message to ' + str(excel_data['Contact'][count]) + str(e))
+# Encode Message Text
+with open('message.txt', 'r') as file:
+    msg = file.read()
+
+# Open browser with default link
+link = 'https://web.whatsapp.com'
+driver.get(link)
+time.sleep(login_time)
+
+# Loop Through Numbers List
+with open('numbers.txt', 'r') as file:
+    for n in file.readlines():
+        num = n.rstrip()
+        link = f'https://web.whatsapp.com/send/?phone={num}'
+        driver.get(link)
+        time.sleep(new_msg_time)
+        # Click on button to load the input DOM
+        if(image_path):
+            attach_btn = driver.find_element(By.CSS_SELECTOR, '._1OT67')
+            attach_btn.click()
+            time.sleep(action_time)
+            # Find and send image path to input
+            msg_input = driver.find_elements(By.CSS_SELECTOR, '._2UNQo input')[1]
+            msg_input.send_keys(image_path)
+            time.sleep(action_time)
+        # Start the action chain to write the message
+        actions = ActionChains(driver)
+        for line in msg.split('\n'):
+            actions.send_keys(line)
+            # SHIFT + ENTER to create next line
+            actions.key_down(Keys.SHIFT).send_keys(Keys.ENTER).key_up(Keys.SHIFT)
+        actions.send_keys(Keys.ENTER)
+        actions.perform()
+        time.sleep(send_msg_time)
+
+# Quit the driver
 driver.quit()
-print("The script executed successfully.")
